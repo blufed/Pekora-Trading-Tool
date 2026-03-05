@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Korone Trading Tool v2.1
+// @name         Korone Trading Tool v2.2
 // @namespace    https://pekora.zip
-// @version      2.5
+// @version      2.2
 // @description  Mass trade tool for pekora.zip with Koromons integration
 // @author       LMoD
 // @match        https://www.pekora.zip/*
@@ -25,7 +25,6 @@
   let targetItem = null, owners = [], consecutiveRateLimits = 0;
   let maxUsers = 0, delaySeconds = 5, backoffBase = 15;
 
-  // Cancel tab
   let outboundTrades = [], isCancelling = false, shouldStopCancel = false, cancelDelay = 2;
   let selectedTradeIds = new Set();
 
@@ -35,117 +34,363 @@
   const CANCEL_URL   = id  => `https://www.pekora.zip/apisite/trades/v1/trades/${id}/decline`;
   const KOROMONS     = 'https://koromons.xyz/api';
 
+  // ─── THEMES ──────────────────────────────
+  const THEMES = {
+    dark: {
+      name: 'Dark (Default)',
+      vars: {
+        '--bg-modal':   '#1c1e24',
+        '--bg-header':  '#15171c',
+        '--bg-box':     '#22242b',
+        '--bg-input':   '#18191f',
+        '--bg-item':    '#18191f',
+        '--bg-log':     '#121318',
+        '--border':     '#2b2d36',
+        '--border2':    '#25272e',
+        '--text-pri':   '#eaecf0',
+        '--text-sec':   '#c9cdd4',
+        '--text-muted': '#555c6b',
+        '--text-dim':   '#3e4351',
+        '--accent':     '#1a73e8',
+        '--accent-hov': '#1260cc',
+        '--tab-active': '#1a73e8',
+        '--notice-bg':  'rgba(234,179,8,.1)',
+        '--notice-bd':  'rgba(234,179,8,.35)',
+        '--notice-txt': '#fde047',
+        '--overlay':    'rgba(0,0,0,.6)',
+        '--scrollbar':  '#2e3039',
+      }
+    },
+    midnight: {
+      name: 'Midnight Blue',
+      vars: {
+        '--bg-modal':   '#0d1117',
+        '--bg-header':  '#090d13',
+        '--bg-box':     '#161b22',
+        '--bg-input':   '#0d1117',
+        '--bg-item':    '#0d1117',
+        '--bg-log':     '#070a0f',
+        '--border':     '#21262d',
+        '--border2':    '#161b22',
+        '--text-pri':   '#e6edf3',
+        '--text-sec':   '#b1bac4',
+        '--text-muted': '#484f58',
+        '--text-dim':   '#30363d',
+        '--accent':     '#388bfd',
+        '--accent-hov': '#1f6feb',
+        '--tab-active': '#388bfd',
+        '--notice-bg':  'rgba(56,139,253,.1)',
+        '--notice-bd':  'rgba(56,139,253,.35)',
+        '--notice-txt': '#79c0ff',
+        '--overlay':    'rgba(0,0,0,.75)',
+        '--scrollbar':  '#21262d',
+      }
+    },
+    rose: {
+      name: 'Rose Gold',
+      vars: {
+        '--bg-modal':   '#1e1519',
+        '--bg-header':  '#17101x',
+        '--bg-box':     '#261a1f',
+        '--bg-input':   '#1a1015',
+        '--bg-item':    '#1a1015',
+        '--bg-log':     '#110b0e',
+        '--border':     '#3d2530',
+        '--border2':    '#2e1c25',
+        '--text-pri':   '#f5e6ea',
+        '--text-sec':   '#d4b8c0',
+        '--text-muted': '#7a5260',
+        '--text-dim':   '#4a2f3a',
+        '--accent':     '#e8619a',
+        '--accent-hov': '#d4437e',
+        '--tab-active': '#e8619a',
+        '--notice-bg':  'rgba(232,97,154,.1)',
+        '--notice-bd':  'rgba(232,97,154,.35)',
+        '--notice-txt': '#f4a8c7',
+        '--overlay':    'rgba(0,0,0,.65)',
+        '--scrollbar':  '#3d2530',
+      }
+    },
+    forest: {
+      name: 'Forest Green',
+      vars: {
+        '--bg-modal':   '#131a14',
+        '--bg-header':  '#0e140f',
+        '--bg-box':     '#1a2419',
+        '--bg-input':   '#111a12',
+        '--bg-item':    '#111a12',
+        '--bg-log':     '#0a1009',
+        '--border':     '#253826',
+        '--border2':    '#1c2a1d',
+        '--text-pri':   '#e8f5e9',
+        '--text-sec':   '#b5cbb7',
+        '--text-muted': '#4a7050',
+        '--text-dim':   '#2d4a30',
+        '--accent':     '#4caf50',
+        '--accent-hov': '#388e3c',
+        '--tab-active': '#4caf50',
+        '--notice-bg':  'rgba(76,175,80,.1)',
+        '--notice-bd':  'rgba(76,175,80,.35)',
+        '--notice-txt': '#a5d6a7',
+        '--overlay':    'rgba(0,0,0,.65)',
+        '--scrollbar':  '#253826',
+      }
+    },
+    light: {
+      name: 'Light',
+      vars: {
+        '--bg-modal':   '#ffffff',
+        '--bg-header':  '#f0f2f5',
+        '--bg-box':     '#f7f8fa',
+        '--bg-input':   '#ffffff',
+        '--bg-item':    '#ffffff',
+        '--bg-log':     '#f0f2f5',
+        '--border':     '#dde1e7',
+        '--border2':    '#e4e7ec',
+        '--text-pri':   '#1a1d23',
+        '--text-sec':   '#3a3f4a',
+        '--text-muted': '#6b7280',
+        '--text-dim':   '#9ca3af',
+        '--accent':     '#1a73e8',
+        '--accent-hov': '#1260cc',
+        '--tab-active': '#1a73e8',
+        '--notice-bg':  'rgba(234,179,8,.08)',
+        '--notice-bd':  'rgba(234,179,8,.4)',
+        '--notice-txt': '#92600a',
+        '--overlay':    'rgba(0,0,0,.45)',
+        '--scrollbar':  '#dde1e7',
+      }
+    },
+    purple: {
+      name: 'Purple Haze',
+      vars: {
+        '--bg-modal':   '#1a1525',
+        '--bg-header':  '#130f1d',
+        '--bg-box':     '#221c30',
+        '--bg-input':   '#160f22',
+        '--bg-item':    '#160f22',
+        '--bg-log':     '#0e0a18',
+        '--border':     '#342550',
+        '--border2':    '#271c3d',
+        '--text-pri':   '#f0eaff',
+        '--text-sec':   '#c4b5e8',
+        '--text-muted': '#7860a8',
+        '--text-dim':   '#4a3570',
+        '--accent':     '#a855f7',
+        '--accent-hov': '#9333ea',
+        '--tab-active': '#a855f7',
+        '--notice-bg':  'rgba(168,85,247,.1)',
+        '--notice-bd':  'rgba(168,85,247,.35)',
+        '--notice-txt': '#d8b4fe',
+        '--overlay':    'rgba(0,0,0,.7)',
+        '--scrollbar':  '#342550',
+      }
+    }
+  };
+
+  const FAB_ICONS = {
+    arrow:   `<svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>`,
+    trade:   `<svg viewBox="0 0 24 24"><path d="M7 16V4m0 0L3 8m4-4 4 4M17 8v12m0 0 4-4m-4 4-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`,
+    star:    `<svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`,
+    bolt:    `<svg viewBox="0 0 24 24"><path d="M13 2L4.5 13.5H11L10 22l9-11.5H13.5L13 2z"/></svg>`,
+    gift:    `<svg viewBox="0 0 24 24"><path d="M20 12v10H4V12M2 7h20v5H2zM12 22V7m0 0a3 3 0 0 0-3-3 2 2 0 0 0 0 4h3zm0 0a3 3 0 0 1 3-3 2 2 0 0 1 0 4h-3z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`,
+    korone:  `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 14s1.5 2 4 2 4-2 4-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/><circle cx="9" cy="10" r="1.5"/><circle cx="15" cy="10" r="1.5"/></svg>`,
+  };
+
+  let currentTheme = GM_getValue('theme', 'dark');
+  let currentFabIcon = GM_getValue('fabIcon', 'arrow');
+
+  function applyTheme(themeKey) {
+    const theme = THEMES[themeKey] || THEMES.dark;
+    const root = document.getElementById('pt-modal');
+    if (!root) return;
+    Object.entries(theme.vars).forEach(([k, v]) => root.style.setProperty(k, v));
+    // overlay bg
+    const ov = document.getElementById('pt-overlay');
+    if (ov) ov.style.setProperty('--overlay', theme.vars['--overlay']);
+    currentTheme = themeKey;
+    GM_setValue('theme', themeKey);
+  }
+
+  // Update sidebar icon when icon setting changes
+  function applyFabIcon(iconKey) {
+    // update hidden fab
+    const fab = document.getElementById('pt-fab');
+    if (fab) fab.innerHTML = FAB_ICONS[iconKey] || FAB_ICONS.arrow;
+    // update sidebar button icon
+    const sideIcon = document.querySelector('#pt-sidebar-btn .pt-fab-icon');
+    if (sideIcon) sideIcon.innerHTML = FAB_ICONS[iconKey] || FAB_ICONS.arrow;
+    currentFabIcon = iconKey;
+    GM_setValue('fabIcon', iconKey);
+  }
+
   // ─── CSS ─────────────────────────────────
   const style = document.createElement('style');
   style.textContent = `
-    #pt-fab{position:fixed;bottom:28px;right:28px;width:48px;height:48px;background:#1a73e8;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:999998;box-shadow:0 4px 20px rgba(0,0,0,.5);border:none;transition:background .2s,transform .15s}
-    #pt-fab:hover{background:#1260cc;transform:scale(1.06)}
-    #pt-fab svg{width:22px;height:22px;fill:#fff}
+    #pt-fab{display:none!important}
+    #pt-sidebar-btn{display:block;width:100%;background:none;border:none;padding:0;cursor:pointer;text-align:left;}
+    #pt-sidebar-btn .wrapper-0-2-92{transition:background .15s}
+    #pt-sidebar-btn:hover .wrapper-0-2-92{background:rgba(255,255,255,.05)}
+    #pt-sidebar-btn .pt-fab-icon{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;margin-right:4px;vertical-align:middle;flex-shrink:0;opacity:0.85}
+    #pt-sidebar-btn .pt-fab-icon svg{width:15px;height:15px;fill:none;stroke:#9da0b3;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
     #pt-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999999;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .18s}
     #pt-overlay.open{opacity:1;pointer-events:all}
-    #pt-modal{width:700px;max-width:96vw;max-height:88vh;background:#1c1e24;border-radius:8px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 80px rgba(0,0,0,.75);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;color:#c9cdd4;transform:translateY(12px) scale(.98);transition:transform .18s}
+    #pt-modal{
+      --bg-modal:#1c1e24;--bg-header:#15171c;--bg-box:#22242b;--bg-input:#18191f;--bg-item:#18191f;--bg-log:#121318;
+      --border:#2b2d36;--border2:#25272e;--text-pri:#eaecf0;--text-sec:#c9cdd4;--text-muted:#555c6b;--text-dim:#3e4351;
+      --accent:#1a73e8;--accent-hov:#1260cc;--tab-active:#1a73e8;
+      --notice-bg:rgba(234,179,8,.1);--notice-bd:rgba(234,179,8,.35);--notice-txt:#fde047;
+      --overlay:rgba(0,0,0,.6);--scrollbar:#2e3039;
+      width:700px;max-width:96vw;max-height:88vh;background:var(--bg-modal);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 80px rgba(0,0,0,.75);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;color:var(--text-sec);transform:translateY(12px) scale(.98);transition:transform .18s;position:absolute;
+    }
     #pt-overlay.open #pt-modal{transform:translateY(0) scale(1)}
-    #pt-header{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;background:#15171c;border-bottom:1px solid #25272e;flex-shrink:0}
-    #pt-title{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:600;color:#eaecf0}
-    #pt-title svg{width:17px;height:17px;fill:#1a73e8;flex-shrink:0}
-    #pt-close{background:none;border:none;color:#555c6b;font-size:22px;cursor:pointer;line-height:1;padding:2px 5px;border-radius:4px;transition:color .15s,background .15s}
-    #pt-close:hover{color:#eaecf0;background:#25272e}
-    #pt-tabs{display:flex;background:#15171c;border-bottom:1px solid #25272e;flex-shrink:0;overflow-x:auto}
+    #pt-header{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;background:var(--bg-header);border-bottom:1px solid var(--border2);flex-shrink:0;cursor:grab;user-select:none}
+    #pt-header:active{cursor:grabbing}
+    #pt-title{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:600;color:var(--text-pri)}
+    #pt-title svg{width:17px;height:17px;fill:var(--accent);flex-shrink:0}
+    #pt-close{background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;line-height:1;padding:2px 5px;border-radius:4px;transition:color .15s,background .15s}
+    #pt-close:hover{color:var(--text-pri);background:var(--border)}
+    #pt-tabs{display:flex;background:var(--bg-header);border-bottom:1px solid var(--border2);flex-shrink:0;overflow-x:auto}
     #pt-tabs::-webkit-scrollbar{display:none}
-    .pt-tab{padding:11px 18px;cursor:pointer;font-size:13px;font-weight:500;color:#555c6b;border-bottom:2px solid transparent;transition:color .15s,border-color .15s;white-space:nowrap;flex-shrink:0}
-    .pt-tab:hover{color:#c9cdd4}.pt-tab.active{color:#1a73e8;border-bottom-color:#1a73e8}
+    .pt-tab{padding:11px 18px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text-muted);border-bottom:2px solid transparent;transition:color .15s,border-color .15s;white-space:nowrap;flex-shrink:0}
+    .pt-tab:hover{color:var(--text-sec)}.pt-tab.active{color:var(--tab-active);border-bottom-color:var(--tab-active)}
     #pt-body{overflow-y:auto;flex:1;min-height:0}
     #pt-body::-webkit-scrollbar{width:5px}
-    #pt-body::-webkit-scrollbar-thumb{background:#2e3039;border-radius:3px}
+    #pt-body::-webkit-scrollbar-thumb{background:var(--scrollbar);border-radius:3px}
     .pt-pane{display:none;padding:16px 18px}.pt-pane.active{display:block}
-    .pt-notice{background:rgba(234,179,8,.1);border:1px solid rgba(234,179,8,.35);border-radius:6px;padding:10px 13px;color:#fde047;font-size:12px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px}
-    .pt-box{background:#22242b;border:1px solid #2b2d36;border-radius:6px;padding:14px 14px 12px;margin-bottom:12px}
-    .pt-box-title{font-size:11px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:#555c6b;margin-bottom:11px}
-    .pt-box-title em{color:#1a73e8;font-style:normal;font-weight:700}
+    .pt-notice{background:var(--notice-bg);border:1px solid var(--notice-bd);border-radius:6px;padding:10px 13px;color:var(--notice-txt);font-size:12px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+    .pt-box{background:var(--bg-box);border:1px solid var(--border);border-radius:6px;padding:14px 14px 12px;margin-bottom:12px}
+    .pt-box-title{font-size:11px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--text-muted);margin-bottom:11px}
+    .pt-box-title em{color:var(--accent);font-style:normal;font-weight:700}
     .pt-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 15px;border:none;border-radius:5px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;transition:background .15s,opacity .15s;white-space:nowrap}
     .pt-btn:disabled{opacity:.35;cursor:not-allowed}
-    .pt-btn-blue{background:#1a73e8;color:#fff}.pt-btn-blue:hover:not(:disabled){background:#1260cc}
+    .pt-btn-blue{background:var(--accent);color:#fff}.pt-btn-blue:hover:not(:disabled){background:var(--accent-hov)}
     .pt-btn-green{background:#1a8f4a;color:#fff}.pt-btn-green:hover:not(:disabled){background:#177a3f}
     .pt-btn-red{background:#c0392b;color:#fff}.pt-btn-red:hover:not(:disabled){background:#a93226}
-    .pt-btn-dark{background:#2b2d36;color:#c9cdd4;border:1px solid #34363f}.pt-btn-dark:hover:not(:disabled){background:#32343e}
+    .pt-btn-dark{background:var(--bg-input);color:var(--text-sec);border:1px solid var(--border)}.pt-btn-dark:hover:not(:disabled){background:var(--border)}
     .pt-btn-w{width:100%}
-    .pt-input{background:#18191f;border:1px solid #2b2d36;border-radius:5px;padding:8px 11px;color:#eaecf0;font-family:inherit;font-size:13px;outline:none;width:100%;box-sizing:border-box;transition:border-color .15s}
-    .pt-input:focus{border-color:#1a73e8}.pt-input::placeholder{color:#3e4351}
+    .pt-input{background:var(--bg-input);border:1px solid var(--border);border-radius:5px;padding:8px 11px;color:var(--text-pri);font-family:inherit;font-size:13px;outline:none;width:100%;box-sizing:border-box;transition:border-color .15s}
+    .pt-input:focus{border-color:var(--accent)}.pt-input::placeholder{color:var(--text-dim)}
     #pt-inv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(68px,1fr));gap:7px;max-height:175px;overflow-y:auto;margin-top:10px}
     #pt-inv-grid::-webkit-scrollbar{width:4px}
-    #pt-inv-grid::-webkit-scrollbar-thumb{background:#2b2d36;border-radius:2px}
-    .pt-iitem{background:#18191f;border:2px solid #2b2d36;border-radius:6px;padding:6px;cursor:pointer;text-align:center;transition:border-color .12s,background .12s}
-    .pt-iitem:hover{border-color:#1a73e8;background:#1c2538}.pt-iitem.sel{border-color:#1a73e8;background:#1c2538}
-    .pt-iitem img{width:100%;aspect-ratio:1;border-radius:4px;display:block;margin-bottom:3px;background:#22242b;object-fit:cover}
-    .pt-iitem-n{font-size:9px;color:#7c8494;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .pt-iitem-v{font-size:9px;color:#1a73e8;font-weight:700}
+    #pt-inv-grid::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+    .pt-iitem{background:var(--bg-item);border:2px solid var(--border);border-radius:6px;padding:6px;cursor:pointer;text-align:center;transition:border-color .12s,background .12s}
+    .pt-iitem:hover{border-color:var(--accent);background:var(--bg-box)}.pt-iitem.sel{border-color:var(--accent);background:var(--bg-box)}
+    .pt-iitem img{width:100%;aspect-ratio:1;border-radius:4px;display:block;margin-bottom:3px;background:var(--bg-box);object-fit:cover}
+    .pt-iitem-n{font-size:9px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .pt-iitem-v{font-size:9px;color:var(--accent);font-weight:700}
     .pt-cat-row{display:flex;gap:8px;margin-bottom:10px}
-    #pt-cat-sort{background:#18191f;border:1px solid #2b2d36;border-radius:5px;padding:8px 10px;color:#eaecf0;font-family:inherit;font-size:13px;outline:none;cursor:pointer;flex-shrink:0}
+    #pt-cat-sort{background:var(--bg-input);border:1px solid var(--border);border-radius:5px;padding:8px 10px;color:var(--text-pri);font-family:inherit;font-size:13px;outline:none;cursor:pointer;flex-shrink:0}
     #pt-cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:7px;max-height:230px;overflow-y:auto}
     #pt-cat-grid::-webkit-scrollbar{width:4px}
-    #pt-cat-grid::-webkit-scrollbar-thumb{background:#2b2d36;border-radius:2px}
-    .pt-citem{background:#18191f;border:2px solid #2b2d36;border-radius:6px;padding:7px;cursor:pointer;text-align:center;transition:border-color .12s,background .12s}
-    .pt-citem:hover{border-color:#1a73e8;background:#1c2538}.pt-citem.sel{border-color:#1a73e8;background:#1c2538}
-    .pt-citem img{width:100%;aspect-ratio:1;border-radius:4px;display:block;margin-bottom:4px;background:#22242b;object-fit:cover}
-    .pt-citem-n{font-size:9px;color:#7c8494;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .pt-citem-v{font-size:9px;color:#1a73e8;font-weight:700}.pt-citem-r{font-size:9px;color:#555c6b}
-    #pt-target-preview{display:none;align-items:center;gap:12px;background:#18191f;border:1px solid #2b2d36;border-radius:6px;padding:10px 12px;margin-top:10px}
+    #pt-cat-grid::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+    .pt-citem{background:var(--bg-item);border:2px solid var(--border);border-radius:6px;padding:7px;cursor:pointer;text-align:center;transition:border-color .12s,background .12s}
+    .pt-citem:hover{border-color:var(--accent);background:var(--bg-box)}.pt-citem.sel{border-color:var(--accent);background:var(--bg-box)}
+    .pt-citem img{width:100%;aspect-ratio:1;border-radius:4px;display:block;margin-bottom:4px;background:var(--bg-box);object-fit:cover}
+    .pt-citem-n{font-size:9px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .pt-citem-v{font-size:9px;color:var(--accent);font-weight:700}.pt-citem-r{font-size:9px;color:var(--text-muted)}
+    #pt-target-preview{display:none;align-items:center;gap:12px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-top:10px}
     #pt-target-preview.vis{display:flex}
-    #pt-target-preview img{width:46px;height:46px;border-radius:5px;background:#22242b}
-    #pt-tgt-name{font-weight:600;color:#eaecf0;font-size:13px;margin-bottom:2px}
-    #pt-tgt-stats{font-size:11px;color:#555c6b}
-    #pt-tgt-stats span{color:#1a73e8;font-weight:600}
+    #pt-target-preview img{width:46px;height:46px;border-radius:5px;background:var(--bg-box)}
+    #pt-tgt-name{font-weight:600;color:var(--text-pri);font-size:13px;margin-bottom:2px}
+    #pt-tgt-stats{font-size:11px;color:var(--text-muted)}
+    #pt-tgt-stats span{color:var(--accent);font-weight:600}
     .pt-ctrl-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
-    .pt-ctrl-lbl{font-size:12px;color:#7c8494;white-space:nowrap}
-    .pt-stepper{display:flex;align-items:center;background:#18191f;border:1px solid #2b2d36;border-radius:5px;overflow:hidden}
-    .pt-step-btn{width:28px;height:28px;background:none;border:none;color:#c9cdd4;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:background .12s}
-    .pt-step-btn:hover{background:#2b2d36}
-    .pt-step-v{min-width:38px;text-align:center;font-size:12px;font-weight:600;color:#eaecf0;border-left:1px solid #2b2d36;border-right:1px solid #2b2d36;padding:0 5px;height:28px;line-height:28px}
+    .pt-ctrl-lbl{font-size:12px;color:var(--text-muted);white-space:nowrap}
+    .pt-stepper{display:flex;align-items:center;background:var(--bg-input);border:1px solid var(--border);border-radius:5px;overflow:hidden}
+    .pt-step-btn{width:28px;height:28px;background:none;border:none;color:var(--text-sec);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:background .12s}
+    .pt-step-btn:hover{background:var(--border)}
+    .pt-step-v{min-width:38px;text-align:center;font-size:12px;font-weight:600;color:var(--text-pri);border-left:1px solid var(--border);border-right:1px solid var(--border);padding:0 5px;height:28px;line-height:28px}
     .pt-prog-wrap{margin-bottom:10px;display:none}
-    .pt-prog-bg{height:5px;background:#2b2d36;border-radius:3px;overflow:hidden;margin-bottom:5px}
+    .pt-prog-bg{height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:5px}
     .pt-prog-fill{height:100%;border-radius:3px;width:0%;transition:width .3s ease}
-    .pt-prog-fill-blue{background:#1a73e8}.pt-prog-fill-red{background:#c0392b}
-    .pt-prog-row{display:flex;justify-content:space-between;font-size:11px;color:#555c6b}
-    .pt-log{background:#121318;border:1px solid #2b2d36;border-radius:5px;padding:8px 10px;max-height:95px;overflow-y:auto;margin-bottom:10px;font-size:11px;font-family:'Consolas','Courier New',monospace;line-height:1.65;color:#555c6b}
+    .pt-prog-fill-blue{background:var(--accent)}.pt-prog-fill-red{background:#c0392b}
+    .pt-prog-row{display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted)}
+    .pt-log{background:var(--bg-log);border:1px solid var(--border);border-radius:5px;padding:8px 10px;max-height:95px;overflow-y:auto;margin-bottom:10px;font-size:11px;font-family:'Consolas','Courier New',monospace;line-height:1.65;color:var(--text-muted)}
     .pt-log::-webkit-scrollbar{width:3px}
-    .pt-log::-webkit-scrollbar-thumb{background:#2b2d36}
+    .pt-log::-webkit-scrollbar-thumb{background:var(--border)}
     .pt-ok{color:#4ade80}.pt-err{color:#f87171}.pt-info{color:#60a5fa}
-    .pt-lk-result{display:none;align-items:center;gap:12px;background:#18191f;border:1px solid #2b2d36;border-radius:6px;padding:12px;margin-top:10px}
+    .pt-lk-result{display:none;align-items:center;gap:12px;background:var(--bg-item);border:1px solid var(--border);border-radius:6px;padding:12px;margin-top:10px}
     .pt-lk-result.vis{display:flex}
-    .pt-lk-result img{width:54px;height:54px;border-radius:5px;background:#22242b}
-    .pt-lk-name{font-weight:600;color:#eaecf0;font-size:14px;margin-bottom:4px}
-    .pt-lk-stats{font-size:12px;color:#555c6b;line-height:1.8}
-    .pt-lk-stats b{color:#c9cdd4}
-    .dem{font-weight:700}.dem-hi{color:#4ade80}.dem-lo{color:#f87171}.dem-n{color:#60a5fa}.dem-u{color:#7c8494}
+    .pt-lk-result img{width:54px;height:54px;border-radius:5px;background:var(--bg-box)}
+    .pt-lk-name{font-weight:600;color:var(--text-pri);font-size:14px;margin-bottom:4px}
+    .pt-lk-stats{font-size:12px;color:var(--text-muted);line-height:1.8}
+    .pt-lk-stats b{color:var(--text-sec)}
+    .dem{font-weight:700}.dem-hi{color:#4ade80}.dem-lo{color:#f87171}.dem-n{color:#60a5fa}.dem-u{color:var(--text-muted)}
     .pt-chip{display:inline-flex;align-items:center;gap:5px;background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.2);border-radius:4px;padding:3px 8px;font-size:11px;color:#f87171;margin:3px}
     .pt-chip-rm{cursor:pointer}.pt-chip-rm:hover{color:#fff}
-
-    /* ── Cancel Tab ── */
     #pt-trades-list{display:flex;flex-direction:column;gap:5px;max-height:340px;overflow-y:auto;margin-top:10px}
     #pt-trades-list::-webkit-scrollbar{width:4px}
-    #pt-trades-list::-webkit-scrollbar-thumb{background:#2b2d36;border-radius:2px}
-    .pt-trade-row{display:flex;align-items:center;gap:10px;background:#18191f;border:1px solid #2b2d36;border-radius:6px;padding:9px 11px;transition:border-color .12s,opacity .2s;cursor:pointer}
-    .pt-trade-row:hover{border-color:#3a3d45}
-    .pt-trade-row.sel{border-color:#c0392b;background:#1f1919}
+    #pt-trades-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+    .pt-trade-row{display:flex;align-items:center;gap:10px;background:var(--bg-item);border:1px solid var(--border);border-radius:6px;padding:9px 11px;transition:border-color .12s,opacity .2s;cursor:pointer}
+    .pt-trade-row:hover{border-color:var(--border)}
+    .pt-trade-row.sel{border-color:#c0392b;background:rgba(192,57,43,.08)}
     .pt-trade-row.gone{opacity:.25;pointer-events:none}
     .pt-trade-check{width:15px;height:15px;accent-color:#c0392b;cursor:pointer;flex-shrink:0}
-    .pt-trade-partner{font-size:12px;font-weight:600;color:#eaecf0;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .pt-trade-meta{font-size:10px;color:#555c6b;flex-shrink:0;white-space:nowrap}
-    .pt-trade-id{font-size:10px;color:#2e3039;font-family:monospace;flex-shrink:0}
-    .pt-sel-bar{display:flex;align-items:center;gap:10px;font-size:12px;color:#7c8494}
+    .pt-trade-partner{font-size:12px;font-weight:600;color:var(--text-pri);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pt-trade-meta{font-size:10px;color:var(--text-muted);flex-shrink:0;white-space:nowrap}
+    .pt-trade-id{font-size:10px;color:var(--border);font-family:monospace;flex-shrink:0}
+    .pt-sel-bar{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text-muted)}
     .pt-sel-bar input{width:15px;height:15px;accent-color:#c0392b;cursor:pointer}
     .pt-sel-bar label{cursor:pointer;user-select:none}
+
+    /* ── Theme / Icon Picker ── */
+    .pt-theme-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px}
+    .pt-theme-card{background:var(--bg-input);border:2px solid var(--border);border-radius:7px;padding:10px 8px;cursor:pointer;text-align:center;transition:border-color .15s,background .15s;font-size:11px;color:var(--text-sec)}
+    .pt-theme-card:hover{border-color:var(--accent)}
+    .pt-theme-card.active-theme{border-color:var(--accent);background:var(--bg-box)}
+    .pt-theme-swatch{width:100%;height:22px;border-radius:4px;margin-bottom:6px}
+    .pt-icon-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;margin-top:4px}
+    .pt-icon-btn{background:var(--bg-input);border:2px solid var(--border);border-radius:8px;width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:border-color .15s,background .15s;color:var(--text-sec)}
+    .pt-icon-btn:hover{border-color:var(--accent)}
+    .pt-icon-btn.active-icon{border-color:var(--accent);background:var(--bg-box);color:var(--accent)}
+    .pt-icon-btn svg{width:18px;height:18px;fill:currentColor}
   `;
   document.head.appendChild(style);
+
+  // ─── SIDEBAR BUTTON ──────────────────────
+  function injectSidebarBtn() {
+    // Find the sidebar card
+    const card = document.querySelector('.card-0-2-80');
+    if (!card) return false;
+    // Find the "Upgrade Now" button to insert before it (bottom of nav links)
+    const upgradeBtn = card.querySelector('a[href="/BuildersClub/Upgrade.ashx"]');
+
+    const a = document.createElement('a');
+    a.id = 'pt-sidebar-btn';
+    a.href = 'javascript:void(0)';
+    a.className = 'link-0-2-93';
+    a.style.color = 'inherit';
+    a.innerHTML = `
+      <div class="wrapper-0-2-92 hover-icon-nav-trade">
+        <p class="linkEntry-0-2-90">
+          <span class="pt-fab-icon">${FAB_ICONS[currentFabIcon]}</span>
+          <span class="name-0-2-91 name-d0-0-2-98">Trading Tool</span>
+        </p>
+      </div>`;
+    a.addEventListener('click', () => overlay.classList.add('open'));
+
+    if (upgradeBtn) card.insertBefore(a, upgradeBtn);
+    else card.appendChild(a);
+    return true;
+  }
+
+  // Retry injection in case sidebar loads after script
+  function trySidebarInject(attempts = 0) {
+    if (injectSidebarBtn()) return;
+    if (attempts < 20) setTimeout(() => trySidebarInject(attempts + 1), 300);
+  }
 
   // ─── HTML ─────────────────────────────────
   const wrap = document.createElement('div');
   wrap.innerHTML = `
-    <button id="pt-fab" title="Korone Trading Tool"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
+    <button id="pt-fab" title="Korone Trading Tool" style="display:none">
+      ${FAB_ICONS[currentFabIcon]}
+    </button>
     <div id="pt-overlay">
       <div id="pt-modal">
         <div id="pt-header">
-          <div id="pt-title"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>Korone Trading Tool v2.1</div>
+          <div id="pt-title"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>Korone Trading Tool v2.2</div>
           <button id="pt-close">×</button>
         </div>
         <div id="pt-tabs">
@@ -162,7 +407,7 @@
             <div class="pt-box">
               <div class="pt-box-title">1. Your items to offer <em id="pt-offer-count">(0/4)</em></div>
               <button class="pt-btn pt-btn-blue pt-btn-w" id="pt-load-inv">Load My Inventory</button>
-              <div id="pt-inv-grid"><div style="color:#3e4351;font-size:12px;padding:6px 0">Click above to load your inventory</div></div>
+              <div id="pt-inv-grid"><div style="color:var(--text-dim);font-size:12px;padding:6px 0">Click above to load your inventory</div></div>
             </div>
             <div class="pt-box">
               <div class="pt-box-title">2. Target item <em id="pt-target-label"></em></div>
@@ -174,7 +419,7 @@
                   <option value="name">Name A–Z</option>
                 </select>
               </div>
-              <div id="pt-cat-grid"><div style="color:#3e4351;font-size:12px">Loading Koromons catalog...</div></div>
+              <div id="pt-cat-grid"><div style="color:var(--text-dim);font-size:12px">Loading Koromons catalog...</div></div>
               <div id="pt-target-preview">
                 <img id="pt-tgt-img" src="" onerror="this.src='https://koromons.xyz/logo.png'"/>
                 <div style="flex:1"><div id="pt-tgt-name"></div><div id="pt-tgt-stats"></div></div>
@@ -183,10 +428,10 @@
             </div>
             <div class="pt-box">
               <div class="pt-box-title">3. Blast trades</div>
-              <div style="font-size:12px;color:#555c6b;margin-bottom:10px">
-                Selected: <span id="pt-sel-rap" style="color:#1a73e8;font-weight:600">0 RAP</span>,
-                <span id="pt-sel-val" style="color:#1a73e8;font-weight:600">0 Value</span>
-                &nbsp;·&nbsp; Owners: <span id="pt-owners-n" style="color:#eaecf0;font-weight:600">0</span>
+              <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">
+                Selected: <span id="pt-sel-rap" style="color:var(--accent);font-weight:600">0 RAP</span>,
+                <span id="pt-sel-val" style="color:var(--accent);font-weight:600">0 Value</span>
+                &nbsp;·&nbsp; Owners: <span id="pt-owners-n" style="color:var(--text-pri);font-weight:600">0</span>
               </div>
               <div class="pt-ctrl-row">
                 <span class="pt-ctrl-lbl">Max users:</span>
@@ -212,9 +457,9 @@
               <div class="pt-sel-bar">
                 <input type="checkbox" id="pt-select-all"/>
                 <label for="pt-select-all">Select all</label>
-                <span style="margin-left:auto;color:#eaecf0;font-weight:600;font-size:12px"><span id="pt-sel-trade-n">0</span> selected</span>
+                <span style="margin-left:auto;color:var(--text-pri);font-weight:600;font-size:12px"><span id="pt-sel-trade-n">0</span> selected</span>
               </div>
-              <div id="pt-trades-list"><div style="color:#3e4351;font-size:12px;padding:4px 0">Load your outbound trades above to get started.</div></div>
+              <div id="pt-trades-list"><div style="color:var(--text-dim);font-size:12px;padding:4px 0">Load your outbound trades above to get started.</div></div>
             </div>
             <div class="pt-box">
               <div class="pt-box-title">Cancel Selected</div>
@@ -247,6 +492,19 @@
 
           <!-- SETTINGS -->
           <div class="pt-pane" id="pt-pane-settings">
+
+            <!-- THEME PICKER -->
+            <div class="pt-box">
+              <div class="pt-box-title">Theme</div>
+              <div class="pt-theme-grid" id="pt-theme-grid"></div>
+            </div>
+
+            <!-- FAB ICON PICKER -->
+            <div class="pt-box">
+              <div class="pt-box-title">Button Icon</div>
+              <div class="pt-icon-grid" id="pt-icon-grid"></div>
+            </div>
+
             <div class="pt-box">
               <div class="pt-box-title">Blacklisted Users</div>
               <div style="display:flex;gap:8px;margin-bottom:10px"><input class="pt-input" id="pt-bl-q" placeholder="User ID or username..." style="flex:1"/><button class="pt-btn pt-btn-red" id="pt-bl-add">Block</button></div>
@@ -255,10 +513,10 @@
             <div class="pt-box">
               <div class="pt-box-title">Rate Limit Backoff</div>
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-                <span style="font-size:12px;color:#7c8494">Base wait time</span>
+                <span style="font-size:12px;color:var(--text-muted)">Base wait time</span>
                 <div class="pt-stepper"><button class="pt-step-btn" id="pt-bo-m">−</button><div class="pt-step-v" id="pt-bo-v">15s</div><button class="pt-step-btn" id="pt-bo-p">+</button></div>
               </div>
-              <div style="font-size:11px;color:#3e4351;line-height:1.7">On each rate limit hit: waits <b style="color:#7c8494">base × 2^n</b> before retrying.<br/>15s → 30s → 60s → 120s → ...</div>
+              <div style="font-size:11px;color:var(--text-dim);line-height:1.7">On each rate limit hit: waits <b style="color:var(--text-muted)">base × 2^n</b> before retrying.<br/>15s → 30s → 60s → 120s → ...</div>
             </div>
           </div>
 
@@ -267,9 +525,60 @@
     </div>`;
   document.body.appendChild(wrap);
 
+  // ─── THEME PICKER RENDER ──────────────────
+  const THEME_SWATCHES = {
+    dark:     'linear-gradient(135deg,#1c1e24 50%,#1a73e8 50%)',
+    midnight: 'linear-gradient(135deg,#0d1117 50%,#388bfd 50%)',
+    rose:     'linear-gradient(135deg,#1e1519 50%,#e8619a 50%)',
+    forest:   'linear-gradient(135deg,#131a14 50%,#4caf50 50%)',
+    light:    'linear-gradient(135deg,#f0f2f5 50%,#1a73e8 50%)',
+    purple:   'linear-gradient(135deg,#1a1525 50%,#a855f7 50%)',
+  };
+
+  function renderThemePicker() {
+    const grid = document.getElementById('pt-theme-grid'); if (!grid) return;
+    grid.innerHTML = '';
+    Object.entries(THEMES).forEach(([key, theme]) => {
+      const card = document.createElement('div');
+      card.className = 'pt-theme-card' + (currentTheme === key ? ' active-theme' : '');
+      card.innerHTML = `<div class="pt-theme-swatch" style="background:${THEME_SWATCHES[key]}"></div>${theme.name}`;
+      card.addEventListener('click', () => {
+        applyTheme(key);
+        document.querySelectorAll('.pt-theme-card').forEach(c => c.classList.remove('active-theme'));
+        card.classList.add('active-theme');
+      });
+      grid.appendChild(card);
+    });
+  }
+
+  function renderIconPicker() {
+    const grid = document.getElementById('pt-icon-grid'); if (!grid) return;
+    grid.innerHTML = '';
+    Object.entries(FAB_ICONS).forEach(([key, svg]) => {
+      const btn = document.createElement('div');
+      btn.className = 'pt-icon-btn' + (currentFabIcon === key ? ' active-icon' : '');
+      btn.innerHTML = svg;
+      btn.title = key;
+      btn.addEventListener('click', () => {
+        applyFabIcon(key);
+        document.querySelectorAll('.pt-icon-btn').forEach(b => b.classList.remove('active-icon'));
+        btn.classList.add('active-icon');
+      });
+      grid.appendChild(btn);
+    });
+  }
+
   // ─── MODAL / TABS ─────────────────────────
   const overlay = document.getElementById('pt-overlay');
-  document.getElementById('pt-fab').onclick = () => overlay.classList.add('open');
+  const modal = document.getElementById('pt-modal');
+
+  document.getElementById('pt-fab').onclick = e => {
+    if (fabDragged) return;
+    overlay.classList.add('open');
+    modal.style.left = '';
+    modal.style.top = '';
+    modal.style.position = 'absolute';
+  };
   document.getElementById('pt-close').onclick = () => overlay.classList.remove('open');
   overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
   document.querySelectorAll('.pt-tab').forEach(t => {
@@ -279,6 +588,66 @@
       document.getElementById(`pt-pane-${t.dataset.pane}`).classList.add('active');
     });
   });
+
+  // ─── DRAGGABLE MODAL ──────────────────────
+  (function makeDraggableModal() {
+    const header = document.getElementById('pt-header');
+    let dragging = false, ox = 0, oy = 0;
+    header.addEventListener('mousedown', e => {
+      if (e.target === document.getElementById('pt-close')) return;
+      dragging = true;
+      const r = modal.getBoundingClientRect();
+      ox = e.clientX - r.left;
+      oy = e.clientY - r.top;
+      modal.style.transition = 'none';
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', e => {
+      if (!dragging) return;
+      const x = Math.max(0, Math.min(window.innerWidth - modal.offsetWidth, e.clientX - ox));
+      const y = Math.max(0, Math.min(window.innerHeight - modal.offsetHeight, e.clientY - oy));
+      modal.style.left = x + 'px';
+      modal.style.top = y + 'px';
+      modal.style.transform = 'none';
+    });
+    document.addEventListener('mouseup', () => { dragging = false; modal.style.transition = ''; });
+  })();
+
+  // ─── DRAGGABLE FAB ────────────────────────
+  let fabDragged = false;
+  (function makeDraggableFab() {
+    const fab = document.getElementById('pt-fab');
+    let dragging = false, ox = 0, oy = 0, startX = 0, startY = 0;
+
+    // Load saved position
+    const savedPos = GM_getValue('fabPos', null);
+    if (savedPos) { try { const p = JSON.parse(savedPos); fab.style.left = p.l; fab.style.top = p.t; fab.style.right = 'auto'; fab.style.bottom = 'auto'; } catch {} }
+
+    fab.addEventListener('mousedown', e => {
+      dragging = true; fabDragged = false;
+      const r = fab.getBoundingClientRect();
+      ox = e.clientX - r.left;
+      oy = e.clientY - r.top;
+      startX = e.clientX; startY = e.clientY;
+      fab.style.transition = 'none';
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', e => {
+      if (!dragging) return;
+      if (Math.abs(e.clientX - startX) > 4 || Math.abs(e.clientY - startY) > 4) fabDragged = true;
+      const x = Math.max(0, Math.min(window.innerWidth - fab.offsetWidth, e.clientX - ox));
+      const y = Math.max(0, Math.min(window.innerHeight - fab.offsetHeight, e.clientY - oy));
+      fab.style.left = x + 'px'; fab.style.top = y + 'px';
+      fab.style.right = 'auto'; fab.style.bottom = 'auto';
+    });
+    document.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      fab.style.transition = '';
+      if (fabDragged) GM_setValue('fabPos', JSON.stringify({ l: fab.style.left, t: fab.style.top }));
+      setTimeout(() => { fabDragged = false; }, 50);
+    });
+  })();
 
   // ─── UTILS ───────────────────────────────
   let cachedCsrf = '';
@@ -326,8 +695,6 @@
   const demCls = d => !d ? 'dem-u' : ['high','amazing','great'].includes(d) ? 'dem-hi' : ['low','terrible','awful'].includes(d) ? 'dem-lo' : 'dem-n';
 
   // ─── KOROMONS API ────────────────────────
-  // Koromons /api/items returns array: [{Name, Value, Demand, itemId, ...}, ...]
-  // We normalise into allItems = { "<itemId>": { name, value, rap, demand } }
   function koroReq(path) {
     return new Promise(resolve => GM_xmlhttpRequest({
       method: 'GET', url: KOROMONS + path,
@@ -363,43 +730,14 @@
       data.forEach(item => {
         const id = String(item.itemId || item.ItemId || item.id || '');
         if (!id) return;
-        allItems[id] = {
-          name:   item.Name   || item.name   || '',
-          value:  item.Value  || item.value  || 0,
-          rap:    0, // fetched individually via /api/items/:id when item is selected
-          demand: item.Demand || item.demand || '',
-          rarity: item.Rarity || item.rarity || '',
-          acronym: item.Acronym || item.acronym || ''
-        };
+        allItems[id] = { name: item.Name||item.name||'', value: item.Value||item.value||0, rap: 0, demand: item.Demand||item.demand||'', rarity: item.Rarity||item.rarity||'', acronym: item.Acronym||item.acronym||'' };
       });
       blog(`Loaded ${Object.keys(allItems).length} items from Koromons`, 'pt-info');
       renderCatalog();
-      // Fetch RAP for all items in background batches of 10 concurrent requests
-      fetchAllRaps();
     } else {
       blog('Could not reach Koromons API', 'pt-err');
       document.getElementById('pt-cat-grid').innerHTML = '<div style="color:#f87171;font-size:12px">Could not load items</div>';
     }
-  }
-
-  async function fetchAllRaps() {
-    const ids = Object.keys(allItems);
-    const batchSize = 10;
-    for (let i = 0; i < ids.length; i += batchSize) {
-      const batch = ids.slice(i, i + batchSize);
-      await Promise.all(batch.map(async id => {
-        try {
-          const res = await siteReq('GET', 'https://www.pekora.zip/apisite/economy/v1/assets/' + id + '/resale-data');
-          const rd = JSON.parse(res.body);
-          const rap = rd?.recentAveragePrice || 0;
-          if (allItems[id]) allItems[id].rap = rap;
-        } catch {}
-      }));
-      // Re-render catalog every 5 batches so RAP values appear progressively
-      if ((i / batchSize) % 5 === 0) renderCatalog();
-      await sleep(100);
-    }
-    renderCatalog(); // final render when all done
   }
 
   function getCatalogItems() {
@@ -418,7 +756,7 @@
   function renderCatalog() {
     const grid = document.getElementById('pt-cat-grid');
     const items = getCatalogItems();
-    if (!items.length) { grid.innerHTML = '<div style="color:#3e4351;font-size:12px">No items match</div>'; return; }
+    if (!items.length) { grid.innerHTML = '<div style="color:var(--text-dim);font-size:12px">No items match</div>'; return; }
     grid.innerHTML = '';
     items.forEach(item => {
       const div = document.createElement('div');
@@ -440,13 +778,8 @@
     document.getElementById('pt-target-preview').classList.add('vis');
     renderCatalog();
     blog(`Target: ${item.name} (ID ${item.id})`, 'pt-info');
-    // Fetch RAP from pekora.zip resale-data endpoint
-    const rapRes = await siteReq('GET', 'https://www.pekora.zip/apisite/economy/v1/assets/' + item.id + '/resale-data');
-    let rap = 0;
-    try {
-      const rd = JSON.parse(rapRes.body);
-      rap = rd?.recentAveragePrice || rd?.averagePrice || rd?.rap || 0;
-    } catch {}
+    const itemData = await koroReq('/items/' + item.id);
+    const rap = itemData?.RAP || itemData?.Rap || itemData?.rap || 0;
     allItems[item.id] = { ...allItems[item.id], rap };
     targetItem = { ...targetItem, rap };
     const rapEl = document.getElementById('pt-live-rap');
@@ -460,7 +793,7 @@
   document.getElementById('pt-load-inv').addEventListener('click', async () => {
     const uid = await getMyUid();
     if (!uid) { blog('Cannot detect your user ID — are you logged in?', 'pt-err'); return; }
-    document.getElementById('pt-inv-grid').innerHTML = '<div style="color:#3e4351;font-size:12px;padding:6px 0">Loading...</div>';
+    document.getElementById('pt-inv-grid').innerHTML = '<div style="color:var(--text-dim);font-size:12px;padding:6px 0">Loading...</div>';
     blog('Fetching inventory...', 'pt-info');
     myInventory = []; let cursor = '';
     while (true) {
@@ -515,7 +848,6 @@
   const checkSendReady = () => { document.getElementById('pt-send').disabled = !(selectedOfferItems.length > 0 && owners.length > 0 && !isRunning); };
 
   // ─── FIND OWNERS ─────────────────────────
-  // Uses the original pekora.zip inventory endpoints — unchanged from original script
   document.getElementById('pt-find-owners').addEventListener('click', async () => {
     if (!targetItem) return;
     blog(`Fetching owners of "${targetItem.name}"...`, 'pt-info');
@@ -542,10 +874,9 @@
   // ─── CANCEL TRADES ───────────────────────
   document.getElementById('pt-load-trades').addEventListener('click', async () => {
     clog('Loading all outbound trades...', 'pt-info');
-    document.getElementById('pt-trades-list').innerHTML = '<div style="color:#3e4351;font-size:12px;padding:4px 0">Loading...</div>';
+    document.getElementById('pt-trades-list').innerHTML = '<div style="color:var(--text-dim);font-size:12px;padding:4px 0">Loading...</div>';
     document.getElementById('pt-cancel-count').textContent = '(loading...)';
     outboundTrades = []; selectedTradeIds.clear();
-
     let cursor = null, pages = 0;
     while (true) {
       const res = await siteReq('GET', OUTBOUND_URL(cursor));
@@ -558,7 +889,6 @@
       if (!cursor) break;
       await sleep(300);
     }
-
     document.getElementById('pt-cancel-count').textContent = `(${outboundTrades.length} trades)`;
     clog(`Loaded ${outboundTrades.length} outbound trades`, outboundTrades.length > 0 ? 'pt-ok' : 'pt-err');
     renderTradesList(); syncCancelBtn();
@@ -566,13 +896,12 @@
 
   function renderTradesList() {
     const list = document.getElementById('pt-trades-list');
-    if (!outboundTrades.length) { list.innerHTML = '<div style="color:#555c6b;font-size:12px;padding:4px 0">No outbound trades found.</div>'; return; }
+    if (!outboundTrades.length) { list.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:4px 0">No outbound trades found.</div>'; return; }
     list.innerHTML = '';
     outboundTrades.forEach(trade => {
       const partner = trade.user?.name || trade.user?.displayName || `User ${trade.user?.id||'?'}`;
       const expires = trade.expiration ? new Date(trade.expiration).toLocaleDateString() : '';
       const sel = selectedTradeIds.has(trade.id);
-
       const row = document.createElement('div');
       row.className = 'pt-trade-row' + (sel ? ' sel' : '');
       row.dataset.id = trade.id;
@@ -580,9 +909,7 @@
         <input type="checkbox" class="pt-trade-check" data-id="${trade.id}" ${sel ? 'checked' : ''}/>
         <span class="pt-trade-partner">${partner}</span>
         <span class="pt-trade-meta">exp. ${expires}</span>
-        <span class="pt-trade-id">#${trade.id}</span>
-      `;
-
+        <span class="pt-trade-id">#${trade.id}</span>`;
       const cb = row.querySelector('.pt-trade-check');
       const toggle = checked => {
         if (checked) { selectedTradeIds.add(trade.id); row.classList.add('sel'); }
@@ -603,16 +930,11 @@
     sa.indeterminate = selectedTradeIds.size > 0 && selectedTradeIds.size < outboundTrades.length;
   }
 
-  function syncCancelBtn() {
-    document.getElementById('pt-do-cancel').disabled = selectedTradeIds.size === 0 || isCancelling;
-  }
+  function syncCancelBtn() { document.getElementById('pt-do-cancel').disabled = selectedTradeIds.size === 0 || isCancelling; }
 
   document.getElementById('pt-select-all').addEventListener('change', e => {
     outboundTrades.forEach(t => { if (e.target.checked) selectedTradeIds.add(t.id); else selectedTradeIds.delete(t.id); });
-    document.querySelectorAll('.pt-trade-check').forEach(cb => {
-      cb.checked = e.target.checked;
-      cb.closest('.pt-trade-row').classList.toggle('sel', e.target.checked);
-    });
+    document.querySelectorAll('.pt-trade-check').forEach(cb => { cb.checked = e.target.checked; cb.closest('.pt-trade-row').classList.toggle('sel', e.target.checked); });
     document.getElementById('pt-sel-trade-n').textContent = selectedTradeIds.size;
     syncCancelBtn();
   });
@@ -626,44 +948,28 @@
     document.getElementById('pt-do-cancel').disabled = true;
     document.getElementById('pt-cancel-stop').disabled = false;
     document.getElementById('pt-cprog-wrap').style.display = 'block';
-
     const toCancel = [...selectedTradeIds];
     let done = 0, failed = 0;
     clog(`Cancelling ${toCancel.length} trades...`, 'pt-info');
-
     for (let i = 0; i < toCancel.length; i++) {
       if (shouldStopCancel) { clog('Stopped.', 'pt-err'); break; }
       const id = toCancel[i];
       const trade = outboundTrades.find(t => t.id === id);
       const partner = trade?.user?.name || `#${id}`;
       const res = await siteReq('POST', CANCEL_URL(id));
-      if (res.status === 429) {
-        clog('Rate limited — waiting 30s...', 'pt-err');
-        setProgress('pt-cprog-fill', 'pt-cprog-count', 'pt-cprog-status', done+failed, toCancel.length, 'Rate limited — 30s cooldown');
-        await sleep(30000); i--; continue;
-      }
-      if (res.status === 200) {
-        done++;
-        clog(`✓ Cancelled trade with ${partner}`, 'pt-ok');
-        selectedTradeIds.delete(id);
-        outboundTrades = outboundTrades.filter(t => t.id !== id);
-        const row = document.querySelector(`.pt-trade-row[data-id="${id}"]`);
-        if (row) row.classList.add('gone');
-      } else {
-        failed++;
-        clog(`✗ Failed #${id} (HTTP ${res.status})`, 'pt-err');
-      }
-      setProgress('pt-cprog-fill', 'pt-cprog-count', 'pt-cprog-status', done+failed, toCancel.length, 'Cancelling...');
+      if (res.status === 429) { clog('Rate limited — waiting 30s...', 'pt-err'); setProgress('pt-cprog-fill','pt-cprog-count','pt-cprog-status',done+failed,toCancel.length,'Rate limited — 30s cooldown'); await sleep(30000); i--; continue; }
+      if (res.status === 200) { done++; clog(`✓ Cancelled trade with ${partner}`, 'pt-ok'); selectedTradeIds.delete(id); outboundTrades = outboundTrades.filter(t => t.id !== id); const row = document.querySelector(`.pt-trade-row[data-id="${id}"]`); if (row) row.classList.add('gone'); }
+      else { failed++; clog(`✗ Failed #${id} (HTTP ${res.status})`, 'pt-err'); }
+      setProgress('pt-cprog-fill','pt-cprog-count','pt-cprog-status',done+failed,toCancel.length,'Cancelling...');
       if (i < toCancel.length-1 && !shouldStopCancel) await sleep(cancelDelay * 1000);
     }
-
     clog(`Done — Cancelled: ${done}  Failed: ${failed}`, 'pt-ok');
     document.getElementById('pt-cancel-count').textContent = `(${outboundTrades.length} remaining)`;
     document.getElementById('pt-sel-trade-n').textContent = selectedTradeIds.size;
     isCancelling = false;
     document.getElementById('pt-cancel-stop').disabled = true;
     syncCancelBtn(); syncSelectAll();
-    setProgress('pt-cprog-fill', 'pt-cprog-count', 'pt-cprog-status', done+failed, toCancel.length, 'Complete');
+    setProgress('pt-cprog-fill','pt-cprog-count','pt-cprog-status',done+failed,toCancel.length,'Complete');
     if (done > 0) GM_notification({ title: 'Korone Trading Tool', text: `Cancelled ${done} trades.`, timeout: 4000 });
   });
 
@@ -707,13 +1013,7 @@
       const theirAssets = await getTheirAssets(theirUid, targetItem.id);
       if (!theirAssets.length) { skipped++; setProgress('pt-prog-fill','pt-prog-count','pt-prog-status',sent+failed+skipped,queue.length,'Sending...'); continue; }
       const result = await doSendTrade(myUid, theirUid, selectedOfferItems, theirAssets.slice(0,1));
-      if (result.rateLimited) {
-        consecutiveRateLimits++;
-        const wait = backoffBase * Math.pow(2, consecutiveRateLimits-1);
-        blog(`Rate limited — waiting ${wait}s`, 'pt-err');
-        setProgress('pt-prog-fill','pt-prog-count','pt-prog-status',sent+failed+skipped,queue.length,`Rate limited — ${wait}s`);
-        await sleep(wait*1000); i--; continue;
-      }
+      if (result.rateLimited) { consecutiveRateLimits++; const wait = backoffBase * Math.pow(2, consecutiveRateLimits-1); blog(`Rate limited — waiting ${wait}s`, 'pt-err'); setProgress('pt-prog-fill','pt-prog-count','pt-prog-status',sent+failed+skipped,queue.length,`Rate limited — ${wait}s`); await sleep(wait*1000); i--; continue; }
       consecutiveRateLimits = 0;
       if (result.ok) { sent++; blog(`✓ ${theirName}`, 'pt-ok'); }
       else { failed++; blog(`✗ ${theirName} (HTTP ${result.status})`, 'pt-err'); }
@@ -728,7 +1028,6 @@
     setProgress('pt-prog-fill','pt-prog-count','pt-prog-status',sent+failed+skipped,queue.length,'Complete');
   }
 
-  // Unchanged from original — uses pekora.zip inventory endpoint
   async function getTheirAssets(uid, targetAssetId) {
     const res = await siteReq('GET', `https://www.pekora.zip/apisite/inventory/v1/users/${uid}/assets/collectibles?assetId=${targetAssetId}`);
     try {
@@ -769,7 +1068,6 @@
     const p = await koroReq('/users/' + q);
     const r = document.getElementById('pt-lk-user-r');
     if (p && (p.id || p.name)) {
-      // Fetch avatar headshot
       let avatarUrl = '';
       const av = await koroReq('/pekora/avatar-headshot?userIds=' + (p.id||q) + '&size=150x150&format=png');
       if (av?.data?.[0]?.imageUrl) avatarUrl = av.data[0].imageUrl;
@@ -794,7 +1092,7 @@
   function renderBlacklist() {
     const el = document.getElementById('pt-bl-list');
     const list = (GM_getValue('blacklistUsers','')).split(',').map(s=>s.trim()).filter(Boolean);
-    if (!list.length) { el.innerHTML = '<span style="font-size:12px;color:#3e4351">Nobody blocked</span>'; return; }
+    if (!list.length) { el.innerHTML = '<span style="font-size:12px;color:var(--text-dim)">Nobody blocked</span>'; return; }
     el.innerHTML = list.map((u,i)=>`<span class="pt-chip">🚫 ${u} <span class="pt-chip-rm" data-i="${i}">×</span></span>`).join('');
     el.querySelectorAll('.pt-chip-rm').forEach(btn => { btn.addEventListener('click', () => { list.splice(Number(btn.dataset.i),1); GM_setValue('blacklistUsers',list.join(',')); renderBlacklist(); }); });
   }
@@ -806,7 +1104,13 @@
     document.getElementById('pt-bl-q').value = ''; renderBlacklist();
   });
 
+  // ─── INIT ─────────────────────────────────
   renderBlacklist();
+  renderThemePicker();
+  renderIconPicker();
+  applyTheme(currentTheme);
+  applyFabIcon(currentFabIcon);
+  trySidebarInject();
   loadValues();
 
 })();
