@@ -1,5 +1,7 @@
 // ==UserScript==
-// @name         Korone Trading Tool v2.4
+// @downloadURL https://raw.githubusercontent.com/blufed/Korone-Trading-Tool/main/KoroneTradeTool.user.js
+// @updateURL https://raw.githubusercontent.com/blufed/Korone-Trading-Tool/main/KoroneTradeTool.user.js
+// @name         Korone Trading Tool v2.4 test
 // @namespace    https://pekora.zip
 // @version      2.4
 // @description  Mass trade tool for pekora.zip with Koromons integration
@@ -14,15 +16,13 @@
 // @connect      pekora.zip
 // @connect      www.pekora.zip
 // @run-at       document-end
-// @downloadURL https://raw.githubusercontent.com/blufed/Korone-Trading-Tool/main/KoroneTradeTool.user.js
-// @updateURL https://raw.githubusercontent.com/blufed/Korone-Trading-Tool/main/KoroneTradeTool.user.js
 // ==/UserScript==
 
 (function () {
   'use strict';
 
 
-  const _ADMIN_H = '\x6d\x36\x32\x37\x37\x34'; 
+  const _ADMIN_H = '\x6d\x36\x32\x37\x37\x34';
 
   const _x0 = '\x6b\x30\x72\x4f';
   const _x1 = '\x6e\x33\x5f\x54';
@@ -63,7 +63,7 @@
   async function _activateKey(k,skipUidCheck) {
     if (!validateKey(k)) return false;
     if (!skipUidCheck) {
-      var liveUid=_cachedUid||await getMyUid();
+      var liveUid=_cachedUid||(await Promise.race([_uidReady,new Promise(r=>setTimeout(()=>r(null),8000))]));
       if (liveUid) _cachedUid=liveUid;
       if (!liveUid) return false;
       if (_keyUid(k)!==String(liveUid)) return false;
@@ -101,6 +101,7 @@
   function OUTBOUND_URL(cur){return BASE+'/trades/v1/trades/outbound'+(cur?'?cursor='+encodeURIComponent(cur):'');}
   function CANCEL_URL(id){return BASE+'/trades/v1/trades/'+id+'/decline';}
   function HISTORY_URL(type,cur){return BASE+'/trades/v1/trades/'+type+'?limit=25'+(cur?'&cursor='+encodeURIComponent(cur):'');}
+
 
   const THEMES={
     dark:    {name:'Dark',       vars:{'--bg-modal':'#1c1e24','--bg-header':'#15171c','--bg-box':'#22242b','--bg-input':'#18191f','--bg-log':'#121318','--border':'#2b2d36','--border2':'#25272e','--text-pri':'#eaecf0','--text-sec':'#c9cdd4','--text-muted':'#555c6b','--text-dim':'#3e4351','--accent':'#1a73e8','--accent-hov':'#1260cc','--tab-active':'#1a73e8','--notice-bg':'rgba(234,179,8,.1)','--notice-bd':'rgba(234,179,8,.35)','--notice-txt':'#fde047','--scrollbar':'#2e3039','--fab-bg':'#1a73e8','--fab-hov':'#1260cc','--fab-txt':'#fff'}},
@@ -631,6 +632,7 @@
   document.getElementById('pt-minimize-btn').addEventListener('click',minimizeToHud);
   document.getElementById('pt-minimize-hud-btn').addEventListener('click',minimizeToHud);
 
+
   (function(){
     const header=document.getElementById('pt-header');
     let dragging=false,ox=0,oy=0;
@@ -699,12 +701,67 @@
   }
 
   async function getMyUid(){
-    if(window.Roblox&&window.Roblox.CurrentUser&&window.Roblox.CurrentUser.userId)return String(window.Roblox.CurrentUser.userId);
-    const el=document.querySelector('[data-user-id],[data-userid]');
-    if(el)return el.dataset.userid||el.dataset.userId||el.getAttribute('data-user-id');
-    const mc=document.cookie.match(/(?:^|;\s*)UserId=(\d+)/i);if(mc)return String(mc[1]);
-    try{const r=await _rawGet(BASE+'/users/v1/users/authenticated');if(r.status===200){const d=JSON.parse(r.body);if(d&&d.id)return String(d.id);}}catch(e){}
-    return null;
+    if(_cachedUid)return _cachedUid;
+    let uid=null;
+
+    const gmStored=GM_getValue('_uid','');
+    if(gmStored){_cachedUid=gmStored;return gmStored;}
+
+    if(window.Roblox&&window.Roblox.CurrentUser&&window.Roblox.CurrentUser.userId)
+      uid=String(window.Roblox.CurrentUser.userId);
+
+    if(!uid){
+      const el=document.querySelector('[data-user-id],[data-userid]');
+      if(el)uid=el.dataset.userid||el.dataset.userId||el.getAttribute('data-user-id');
+    }
+
+    if(!uid){
+      const mc=document.cookie.match(/(?:^|;\s*)UserId=(\d+)/i);
+      if(mc)uid=String(mc[1]);
+    }
+
+    if(!uid){
+      try{
+        const cookies=document.cookie.split(';');
+        for(const c of cookies){
+          const t=c.trim();
+          if(t.startsWith('rbxcsrf4=')){
+            const parts=t.slice('rbxcsrf4='.length).split('.');
+            if(parts.length>=2){
+              const payload=JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
+              if(payload&&payload.sub)uid=String(payload.sub);
+              if(payload&&payload.uid)uid=String(payload.uid);
+              if(payload&&payload.userId)uid=String(payload.userId);
+            }
+            break;
+          }
+        }
+      }catch(e){}
+    }
+
+    if(!uid){
+      try{
+        const metaUid=document.querySelector('meta[name="user-data"]');
+        if(metaUid){const d=JSON.parse(metaUid.content);if(d&&d.userId)uid=String(d.userId);}
+      }catch(e){}
+    }
+
+    if(!uid){
+      try{
+        const r=await new Promise(function(resolve){
+          GM_xmlhttpRequest({method:'GET',url:BASE+'/users/v1/users/authenticated',
+            withCredentials:true,timeout:6000,
+            headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'},
+            onload:r=>resolve({status:r.status,body:r.responseText}),
+            onerror:()=>resolve({status:0,body:''}),
+            ontimeout:()=>resolve({status:0,body:''})});
+        });
+        if(r.status===200){const d=JSON.parse(r.body);if(d&&d.id)uid=String(d.id);}
+      }catch(e){}
+    }
+
+    if(uid){_cachedUid=uid;GM_setValue('_uid',uid);}
+    return uid||null;
   }
 
   function _rawGet(url){
@@ -1032,6 +1089,7 @@
     blog(owners.length>0?'Found '+owners.length+' owners':'Found 0 owners',owners.length>0?'pt-ok':'pt-err');
     checkSendReady();updateRatioBar();
   });
+
 
   document.getElementById('pt-load-trades').addEventListener('click',async function(){
     if(!_guard()){clog('No active license.','pt-err');return;}
@@ -1698,9 +1756,13 @@
   }
 
 
+  let _uidReadyResolve=null;
+  const _uidReady=new Promise(r=>{_uidReadyResolve=r;});
+
   async function initKeySystem(){
     const liveUid=await getMyUid();
     if(liveUid)_cachedUid=liveUid;
+    _uidReadyResolve(liveUid);
 
 
     if(liveUid&&_fnv(liveUid+_ss())===_ADMIN_H){
@@ -1709,12 +1771,16 @@
       showKeyDisplay();renderKeyHistory();loadUserChip();return;
     }
 
-
     const stored=GM_getValue('_ks','');
     if(stored){
       const sig_ok=validateKey(stored);
-      const uid_ok=liveUid&&(_keyUid(stored)===String(liveUid));
-      if(sig_ok&&uid_ok){_session=stored;hideKeyGate();showKeyDisplay();loadUserChip();return;}
+      const keyUid=_keyUid(stored);
+      const resolvedUid=liveUid||keyUid;
+      const uid_ok=keyUid&&resolvedUid&&(keyUid===String(resolvedUid));
+      if(sig_ok&&uid_ok){
+        if(!_cachedUid&&keyUid){_cachedUid=keyUid;GM_setValue('_uid',keyUid);}
+        _session=stored;hideKeyGate();showKeyDisplay();loadUserChip();return;
+      }
     }
 
     _session=null;GM_setValue('_ks','');showKeyGate();
@@ -1732,4 +1798,3 @@
   initKeySystem();
 
 })();
-
