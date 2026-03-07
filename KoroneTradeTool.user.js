@@ -14,6 +14,8 @@
 // @connect      pekora.zip
 // @connect      www.pekora.zip
 // @run-at       document-end
+// @downloadURL https://raw.githubusercontent.com/blufed/Korone-Trading-Tool/main/KoroneTradeTool.user.js
+// @updateURL https://raw.githubusercontent.com/blufed/Korone-Trading-Tool/main/KoroneTradeTool.user.js
 // ==/UserScript==
 
 (function () {
@@ -1738,3 +1740,4 @@
   initKeySystem();
 
 })();
+
