@@ -1,6 +1,6 @@
 # Korone Trading Tool
 
-[![Install Script](https://img.shields.io/badge/Install-PekoraTrader-blue)](https://raw.githubusercontent.com/blufed/Korone-Trading-Tool/main/KoroneTradeTool.user.js)
+[![Install Script](https://img.shields.io/badge/Install-KoroneTradingTool-blue)](https://raw.githubusercontent.com/blufed/Korone-Trading-Tool/main/KoroneTradeTool.user.js)
 
 Korone Trading Tool is a Tampermonkey/Violentmonkey userscript for pekora.zip with the following features:
 
