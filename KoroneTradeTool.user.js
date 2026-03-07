@@ -61,12 +61,14 @@
   }
 
   let _session=null;
+  let _cachedUid=null;
   function _keyUid(k){try{return atob(k.trim()).split('\x7c')[0];}catch(e){return null;}}
 
   async function _activateKey(k,skipUidCheck) {
     if (!validateKey(k)) return false;
     if (!skipUidCheck) {
-      var liveUid=await getMyUid();
+      var liveUid=_cachedUid||await getMyUid();
+      if (liveUid) _cachedUid=liveUid;
       if (!liveUid) return false;
       if (_keyUid(k)!==String(liveUid)) return false;
     }
@@ -1709,6 +1711,7 @@
   // ─── KEY GATE + ADMIN INIT ────────────────────────────────────────
   async function initKeySystem(){
     const liveUid=await getMyUid();
+    if(liveUid)_cachedUid=liveUid;
 
     // Admin check first — bypasses key gate entirely
     if(liveUid&&_fnv(liveUid+_ss())===_ADMIN_H){
@@ -1740,4 +1743,3 @@
   initKeySystem();
 
 })();
-
