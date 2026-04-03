@@ -8,7 +8,6 @@ Korone Trading Tool is a Tampermonkey/Violentmonkey userscript for pekora.zip wi
 
 Cryptographically signed keys tied to your pekora.zip account — keys can't be shared or used on another account
 Keys persist across script updates (no re-entry needed when you install a new version)
-Admin panel hidden behind a hashed UID check — admin never sees the key gate
 
 💡 Blast Tab
 
